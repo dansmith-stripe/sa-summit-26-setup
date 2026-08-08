@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Machine Payments Summit — Exercise Setup
-# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/zmessinger-stripe/sa-summit-mpp-setup-script/main/setup.sh)
+# Usage: git clone https://github.com/dansmith-stripe/sa-summit-26-setup.git && bash sa-summit-26-setup/setup.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 ENV_FILE="$HOME/.machine-payments-summit.env"
@@ -62,6 +62,7 @@ while true; do
   read -rsp "Stripe secret key:  " SECRET_KEY
   echo ""
   if [[ "$SECRET_KEY" == sk_test_* ]]; then
+    echo -e "${GREEN}✓ Key received (${#SECRET_KEY} characters)${RESET}"
     break
   fi
   echo -e "${YELLOW}⚠ Must start with sk_test_ — try again.${RESET}"
@@ -116,11 +117,10 @@ echo -e "${GREEN}✓ MCP server registered${RESET}"
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo ""
-echo -e "${BOLD}Setup complete!${RESET}"
+echo -e "${BOLD}Setup complete! You're ready to go.${RESET}"
 echo ""
-echo "To launch Claude for the exercises, open a new shell and run:"
+echo "Run these commands in this terminal:"
 echo ""
-echo "  source $ENV_FILE"
 echo "  claude mcp list   # confirm summit-booking-demo shows ✓ Connected"
 echo "  claude"
 echo ""
