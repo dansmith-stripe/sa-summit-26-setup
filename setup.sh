@@ -59,7 +59,7 @@ fi
 
 # Secret key (hidden input, validated)
 while true; do
-  read -rsp "Stripe secret key:  " SECRET_KEY
+  read -rp "Stripe secret key:  " SECRET_KEY
   echo ""
   if [[ "$SECRET_KEY" == sk_test_* ]]; then
     echo -e "${GREEN}✓ Key received (${#SECRET_KEY} characters)${RESET}"
