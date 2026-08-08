@@ -16,7 +16,7 @@ RED="\033[0;31m"
 RESET="\033[0m"
 
 # ── Directory key (restricted, read-only — safe to embed) ────────────────────
-DIRECTORY_API_KEY="rk_live_REPLACE_WITH_ACTUAL_KEY"
+DIRECTORY_API_KEY="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"
 
 # ─────────────────────────────────────────────────────────────────────────────
 
