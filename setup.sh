@@ -36,6 +36,22 @@ echo ""
 read -rp "Press Enter when ready... "
 echo ""
 
+# ── Load existing values if re-running ───────────────────────────────────────
+
+LDAP_HANDLE=""
+PROFILE_ID=""
+SECRET_KEY=""
+
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE" 2>/dev/null || true
+  LDAP_HANDLE="${LDAP_HANDLE:-}"
+  PROFILE_ID="${STRIPE_PROFILE_ID:-}"
+  SECRET_KEY="${STRIPE_SECRET_KEY:-}"
+  echo -e "${YELLOW}Existing credentials found — press Enter to keep each value.${RESET}"
+  echo ""
+fi
+
 # ── Prompt for values ────────────────────────────────────────────────────────
 
 echo -e "${BOLD}You'll be prompted for 3 values:${RESET}"
@@ -46,23 +62,24 @@ printf "  %-20s %s\n" "Secret key"     "Dashboard → Developers → API keys, t
 echo ""
 
 # LDAP handle
-read -rp "Stripe LDAP handle: " LDAP_HANDLE
+read -rp "Stripe LDAP handle${LDAP_HANDLE:+ [${LDAP_HANDLE}]}: " INPUT
+LDAP_HANDLE="${INPUT:-$LDAP_HANDLE}"
 if [[ -z "$LDAP_HANDLE" ]]; then
   echo -e "${RED}✗ LDAP handle cannot be empty.${RESET}" && exit 1
 fi
 
 # Profile ID
-read -rp "Stripe Profile ID:  " PROFILE_ID
+read -rp "Stripe Profile ID${PROFILE_ID:+ [${PROFILE_ID}]}: " INPUT
+PROFILE_ID="${INPUT:-$PROFILE_ID}"
 if [[ "$PROFILE_ID" != profile_* ]]; then
   echo -e "${YELLOW}⚠ Profile ID should start with profile_ — continuing anyway.${RESET}"
 fi
 
-# Secret key (hidden input, validated)
+# Secret key
 while true; do
-  read -rp "Stripe secret key:  " SECRET_KEY
-  echo ""
+  read -rp "Stripe secret key${SECRET_KEY:+ [${SECRET_KEY}]}: " INPUT
+  SECRET_KEY="${INPUT:-$SECRET_KEY}"
   if [[ "$SECRET_KEY" == sk_test_* ]]; then
-    echo -e "${GREEN}✓ Key received (${#SECRET_KEY} characters)${RESET}"
     break
   fi
   echo -e "${YELLOW}⚠ Must start with sk_test_ — try again.${RESET}"
