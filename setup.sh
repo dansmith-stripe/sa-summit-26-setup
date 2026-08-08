@@ -1,7 +1,3 @@
-💻
-setup.sh
-
-Aug 8, 05:18 PM
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -98,13 +94,56 @@ export LDAP_HANDLE=${LDAP_HANDLE}
 export MP_DEMO_TEAM_ID=summit-${LDAP_HANDLE}-e2e
 export MP_DEMO_STRIPE_PROFILE_ID=${PROFILE_ID}
 export MP_DEMO_STRIPE_SECRET_KEY=${SECRET_KEY}
-export STRIPE_API_KEY=${DIRECTORY_API_KEY}
 export CLAUDE_CODE_DANGEROUSLY_ALLOWED_MCP_SERVERS=summit-booking-demo
 EOF
 
 chmod 600 "$ENV_FILE"
 echo ""
 echo -e "${GREEN}✓ Credentials saved to ${ENV_FILE}${RESET}"
+
+# ── Register summit-directory Stripe CLI profile ─────────────────────────────
+
+STRIPE_CONFIG="$HOME/.config/stripe/config.toml"
+
+if [[ -f "$STRIPE_CONFIG" ]]; then
+  # Remove any existing summit-directory section (idempotent)
+  python3 - "$STRIPE_CONFIG" "$DIRECTORY_API_KEY" <<'PYEOF'
+import sys, re
+
+config_path = sys.argv[1]
+api_key     = sys.argv[2]
+
+with open(config_path, "r") as f:
+    content = f.read()
+
+# Remove existing [summit-directory] block if present
+content = re.sub(
+    r"\[summit-directory\][^\[]*",
+    "",
+    content,
+    flags=re.DOTALL
+).rstrip() + "\n"
+
+# Append new block
+content += f"""
+[summit-directory]
+account_id = 'acct_1Ty0D9PO6vgg8ena'
+device_name = 'summit-directory'
+display_name = 'summit-directory'
+live_mode_api_key = '{api_key}'
+profile_name = 'summit-directory'
+"""
+
+with open(config_path, "w") as f:
+    f.write(content)
+
+print("ok")
+PYEOF
+  echo -e "${GREEN}✓ Stripe CLI profile 'summit-directory' registered${RESET}"
+else
+  echo -e "${YELLOW}⚠ ~/.config/stripe/config.toml not found — skipping directory profile.${RESET}"
+  echo "  Run 'stripe login' first, then re-run this script."
+fi
 
 # ── Auto-source on shell startup ─────────────────────────────────────────────
 
