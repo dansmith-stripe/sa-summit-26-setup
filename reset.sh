@@ -10,6 +10,8 @@ GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
 RESET="\033[0m"
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 echo ""
 echo -e "${BOLD}Machine Payments Summit — Reset${RESET}"
 echo "────────────────────────────────────────────"
@@ -64,8 +66,12 @@ else
   echo -e "${YELLOW}  (no summit-booking-demo MCP server found)${RESET}"
 fi
 
+# ── Remove cloned repo ───────────────────────────────────────────────────────
+
+rm -rf "$SCRIPT_DIR"
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo ""
-echo -e "${BOLD}Reset complete. Ready to rerun setup.sh.${RESET}"
+echo -e "${BOLD}Reset complete. Go back to step 1 to set up again.${RESET}"
 echo ""
