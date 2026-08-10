@@ -39,7 +39,8 @@ done
 # ── 3. Unset env vars in current shell ───────────────────────────────────────
 
 unset LDAP_HANDLE MP_DEMO_TEAM_ID MP_DEMO_STRIPE_PROFILE_ID \
-      MP_DEMO_STRIPE_SECRET_KEY CLAUDE_CODE_DANGEROUSLY_ALLOWED_MCP_SERVERS
+      MP_DEMO_STRIPE_SECRET_KEY STRIPE_DIRECTORY_API_KEY \
+      CLAUDE_CODE_DANGEROUSLY_ALLOWED_MCP_SERVERS
 echo -e "${GREEN}✓ Env vars unset in current shell${RESET}"
 
 # ── 4. Remove summit-directory Stripe CLI profile ────────────────────────────
