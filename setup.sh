@@ -16,7 +16,7 @@ RED="\033[0;31m"
 RESET="\033[0m"
 
 # ── Directory key (restricted, read-only — safe to embed) ────────────────────
-DIRECTORY_API_KEY="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"
+DIRECTORY_API_KEY="rk_live_REPLACE_WITH_ACTUAL_KEY"
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -100,6 +100,24 @@ EOF
 chmod 600 "$ENV_FILE"
 echo ""
 echo -e "${GREEN}✓ Credentials saved to ${ENV_FILE}${RESET}"
+
+# ── Install / upgrade Stripe CLI and Directory plugin ────────────────────────
+
+echo ""
+echo "Checking Stripe CLI..."
+
+if command -v stripe &>/dev/null; then
+  brew upgrade stripe 2>/dev/null || true
+  echo -e "${GREEN}✓ Stripe CLI up to date${RESET}"
+else
+  echo -e "${YELLOW}Installing Stripe CLI via Homebrew...${RESET}"
+  brew install stripe/stripe-cli/stripe
+  echo -e "${GREEN}✓ Stripe CLI installed${RESET}"
+fi
+
+echo "Installing Stripe Directory plugin..."
+stripe plugin install directory 2>/dev/null || stripe plugin upgrade directory 2>/dev/null || true
+echo -e "${GREEN}✓ Directory plugin ready${RESET}"
 
 # ── Register summit-directory Stripe CLI profile ─────────────────────────────
 
