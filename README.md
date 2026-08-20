@@ -65,6 +65,14 @@ Ask Claude:
 
 Without a custom catalog, Claude discovers the default Stripe Tech Café menu.
 
+### Security-key prompt while updating Claude Code
+
+During setup or reset, Claude Code may request Stripe authentication before it can add or remove the `summit-booking-demo` MCP configuration.
+
+If the terminal appears to pause at the Claude MCP step, check for a browser, macOS, or hardware-security-key prompt. Touch your security key and wait for the authentication step to finish. This is expected and does not mean the setup script has hung.
+
+Do not paste your Stripe secret key into Claude Code, chat, screenshots, recordings, or source control.
+
 ## Use a custom fictional catalog
 
 Use a custom catalog when you want to test different fictional business names, offerings, service names, descriptions, prices, or fulfillment wording.
@@ -142,11 +150,23 @@ To return to the default Stripe Tech Café catalog, run standard setup again wit
 
 ## Reset local setup
 
-To remove the local Claude MCP registration and local environment file, run:
+For a complete local reset, including removal of variables from your current terminal, run:
 
     source ./reset.sh
 
-Using `source` is recommended because it also clears the current terminal’s Machine Payments variables. Running `bash ./reset.sh` can remove local files and MCP configuration, but cannot remove variables that were already loaded into your current terminal.
+The reset script first removes your local environment file. It then asks whether to remove the Claude MCP registration.
+
+Claude Code may request Stripe authentication before it can remove the MCP registration. If your browser, macOS, terminal, or hardware security key prompts you, touch your security key and wait for authentication to complete. This is expected and is not a script hang.
+
+If you do not want to remove the MCP registration at that time, select `No`. Your local environment cleanup will still complete, and you can remove the MCP registration later:
+
+    claude mcp remove summit-booking-demo
+
+Running this command instead:
+
+    bash ./reset.sh
+
+can remove local files and the MCP configuration, but cannot remove variables that were already loaded into your current terminal.
 
 `reset.sh` removes only local setup on your computer. It does not delete hosted payment records or custom catalog profiles, and it never affects another person’s demo data.
 
