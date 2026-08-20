@@ -106,8 +106,10 @@ prompt_value() {
 
 prompt_secret() {
   local value=""
-  read -r -s -p "Stripe test secret key (must begin with sk_test_): " value
-  printf '\n'
+
+  # Intentionally visible so workshop attendees can paste and confirm the key.
+  # Never paste this key into chat, a screenshot, source control, or recordings.
+  read -r -p "Stripe test secret key (must begin with sk_test_): " value
   printf '%s' "$value"
 }
 
@@ -337,7 +339,8 @@ done
 
 printf '\nFind a test-mode secret key at:\n'
 printf '  https://dashboard.stripe.com/test/apikeys\n'
-printf 'Use only an sk_test_ key. Live-mode keys are rejected.\n\n'
+printf 'Use only an sk_test_ key. Live-mode keys are rejected.\n'
+printf 'The key is visible while you paste it—do not share your screen or paste it into chat.\n\n'
 
 if [[ -n "$OLD_SECRET_KEY" ]] && ask_yes_no "Reuse the existing test secret key?"; then
   SECRET_KEY="$OLD_SECRET_KEY"
