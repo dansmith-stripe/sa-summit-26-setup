@@ -1,0 +1,35 @@
+{
+  "business_name": "Acme Demo Supply Co.",
+  "business_type": "fictional software add-on marketplace",
+  "disclaimer": "This is a fictional test-mode demo. No real product, service, external task, or deliverable is provided.",
+  "counters": [
+    {
+      "id": "counter_software",
+      "name": "Software Add-ons",
+      "fulfillment_type": "agent_delivery_window",
+      "fulfillment_label": "10-minute simulated delivery window"
+    }
+  ],
+  "items": [
+    {
+      "id": "item_priority_support",
+      "counter_id": "counter_software",
+      "name": "Priority Support Add-on",
+      "description": "A fictional test-mode support add-on for this Machine Payments demo.",
+      "amount": 500,
+      "currency": "usd",
+      "fulfillment_type": "agent_delivery_window",
+      "fulfillment_label": "10-minute simulated delivery window"
+    },
+    {
+      "id": "item_architecture_review",
+      "counter_id": "counter_software",
+      "name": "Architecture Review Voucher",
+      "description": "A fictional test-mode architecture service item. No external work will occur.",
+      "amount": 800,
+      "currency": "usd",
+      "fulfillment_type": "agent_delivery_window",
+      "fulfillment_label": "10-minute simulated delivery window"
+    }
+  ]
+}
