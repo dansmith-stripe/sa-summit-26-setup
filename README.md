@@ -1,54 +1,33 @@
-# SA Summit 2026 — Exercise Setup
 
-Three commands set you up for the Machine Payments Protocol (MPP) exercises. They save your Stripe sandbox credentials to a secured env file, configure the Stripe Directory CLI profile, and register the `summit-booking-demo` MCP server with Claude Code.
+# Stripe Tech Café — Machine Payments workshop setup
 
-## Prerequisite
+This repository sets up the local tools for the Stripe Tech Café Machine Payments demo.
 
-Link CLI requires a passkey on your Link account. Add one at [app.link.com/settings](https://app.link.com/settings) → **Passkeys** before summit day.
+The demo is entirely test mode:
 
-## Setup
+- No real money moves.
+- No food is prepared or delivered.
+- No fictional Agent Counter item creates research, tickets, messages, customer-data access, external work, or a deliverable.
+- The actual purchase flow happens through Claude Code, MCP, Link, and the Machine Payments Protocol—not through the public webpage.
 
-Run these three commands in order:
+The public [Stripe Tech Café page](https://machine-payments.stripedemos.com/) is a static example storefront. It does not change when you use a custom catalog.
 
-```bash
-# 1. Get the setup script
-git clone https://github.com/dansmith-stripe/sa-summit-26-setup.git
-```
+## Before you begin
 
-```bash
-# 2. Run setup (you'll be prompted for 3 values)
-bash sa-summit-26-setup/setup.sh
-```
+You need:
 
-```bash
-# 3. Activate credentials in this terminal
-source ~/.machine-payments-summit.env
-```
+1. Claude Code installed and signed in.
+2. A Stripe test-mode secret key beginning with `sk_test_`.
+3. A test-mode Stripe Business Network Profile ID beginning with `profile_test_`.
+4. A Link passkey configured for the Link account you will use in the exercise.
 
-You'll be prompted for three values:
+Set up your Link passkey before beginning:
 
-| Prompt | Where to find it |
-|--------|-----------------|
-| **Stripe LDAP handle** | Your lowercase Stripe handle (e.g. `jdoe`) |
-| **Stripe Profile ID** | Dashboard → Settings → Profile → Network ID. Starts with `profile_` |
-| **Stripe secret key** | Dashboard → Developers → API keys, test mode. Starts with `sk_test_` |
+1. Visit <https://app.link.com/settings>.
+2. Open **Settings**.
+3. Select **Passkeys**.
+4. Add a passkey.
 
-The script will:
-- Save credentials to `~/.machine-payments-summit.env` (chmod 600)
-- Add a `summit-directory` Stripe CLI profile for live-mode Directory lookups
-- Register `summit-booking-demo` as an MCP server with Claude Code
-- Add auto-source to `~/.zshrc` so credentials load in all future terminals
+During payment approval, Link verifies your purchase through mobile biometric authentication if you use the Link mobile app, or with your laptop/browser-device password if you use Link in the browser.
 
-## Launch Claude
-
-After step 3, verify and launch in the same terminal:
-
-```bash
-claude mcp list   # confirm summit-booking-demo shows ✔ Connected
-claude
-```
-
-## Scripts
-
-- `setup.sh` — interactive setup, run once before summit day
-- `reset.sh` — removes everything setup.sh created (for re-testing)
+## Clone the setup repository
