@@ -6,8 +6,8 @@
     {
       "id": "counter_software",
       "name": "Software Add-ons",
-      "fulfillment_type": "agent_delivery_window",
-      "fulfillment_label": "10-minute simulated delivery window"
+      "fulfillment_type": "instant_simulation",
+      "fulfillment_label": "Immediate fictional confirmation — no real delivery or external work"
     }
   ],
   "items": [
@@ -18,8 +18,8 @@
       "description": "A fictional test-mode support add-on for this Machine Payments demo.",
       "amount": 500,
       "currency": "usd",
-      "fulfillment_type": "agent_delivery_window",
-      "fulfillment_label": "10-minute simulated delivery window"
+      "fulfillment_type": "instant_simulation",
+      "fulfillment_label": "Immediate fictional confirmation — no real delivery or external work"
     },
     {
       "id": "item_architecture_review",
@@ -28,8 +28,8 @@
       "description": "A fictional test-mode architecture service item. No external work will occur.",
       "amount": 800,
       "currency": "usd",
-      "fulfillment_type": "agent_delivery_window",
-      "fulfillment_label": "10-minute simulated delivery window"
+      "fulfillment_type": "instant_simulation",
+      "fulfillment_label": "Immediate fictional confirmation — no real delivery or external work"
     }
   ]
 }
