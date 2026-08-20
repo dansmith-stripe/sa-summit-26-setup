@@ -1,216 +1,399 @@
 #!/usr/bin/env bash
-set -euo pipefail
+#
+# Stripe Tech Café — Machine Payments demo setup
+#
+# Standard setup:
+#   bash ./setup.sh
+#
+# Custom fictional catalog:
+#   bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
+#
+# This script stores your test-mode Stripe credentials only in:
+#   ~/.machine-payments-summit.env
+#
+# It registers the hosted MCP server with Claude Code. It does not start a
+# local application, require npm, or change the static Stripe Tech Café page.
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Machine Payments Summit — Exercise Setup
-# Usage: git clone https://github.com/dansmith-stripe/sa-summit-26-setup.git && bash sa-summit-26-setup/setup.sh
-# ─────────────────────────────────────────────────────────────────────────────
+set -Eeuo pipefail
 
-ENV_FILE="$HOME/.machine-payments-summit.env"
+ENV_FILE="${HOME}/.machine-payments-summit.env"
+MCP_NAME="summit-booking-demo"
+MCP_URL="https://machine-payments.stripedemos.com/mcp"
+CATALOG_REGISTRATION_URL="https://machine-payments.stripedemos.com/api/catalog-profiles"
 
-# Colors
-BOLD="\033[1m"
-GREEN="\033[0;32m"
-YELLOW="\033[0;33m"
-RED="\033[0;31m"
-RESET="\033[0m"
+CATALOG_FILE=""
+TMP_ENV_FILE=""
+TMP_RESPONSE_FILE=""
 
-# ── Directory key (restricted, read-only — safe to embed) ────────────────────
-DIRECTORY_API_KEY="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"
+OLD_PROFILE_ID=""
+OLD_SECRET_KEY=""
+OLD_CATALOG_PROFILE_ID=""
 
-# ─────────────────────────────────────────────────────────────────────────────
+cleanup() {
+  [[ -n "${TMP_ENV_FILE:-}" && -f "${TMP_ENV_FILE:-}" ]] && rm -f "$TMP_ENV_FILE"
+  [[ -n "${TMP_RESPONSE_FILE:-}" && -f "${TMP_RESPONSE_FILE:-}" ]] && rm -f "$TMP_RESPONSE_FILE"
+}
+trap cleanup EXIT
 
-echo ""
-echo -e "${BOLD}Machine Payments Summit — Exercise Setup${RESET}"
-echo "────────────────────────────────────────────"
-echo ""
-echo "This sets up your sandbox credentials and registers the"
-echo "summit-booking-demo MCP server with Claude Code."
-echo ""
+usage() {
+  cat <<'EOF'
+Stripe Tech Café — Machine Payments demo setup
 
-# ── Prerequisite reminder ────────────────────────────────────────────────────
+Usage:
+  bash ./setup.sh
+  bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
 
-echo -e "${YELLOW}Prerequisite:${RESET} Make sure you have a passkey on your Link account."
-echo "  Add one at https://app.link.com/settings → Passkeys before continuing."
-echo ""
-read -rp "Press Enter when ready... "
-echo ""
+Options:
+  --catalog PATH   Register a fictional JSON catalog for this Claude Code demo.
+                   The custom catalog appears through MCP/Claude Code only.
+                   It does not change the public Stripe Tech Café website.
+  -h, --help       Show this help text.
 
-# ── Load existing values if re-running ───────────────────────────────────────
+Examples:
+  # Standard Stripe Tech Café catalog
+  bash ./setup.sh
 
-LDAP_HANDLE=""
-PROFILE_ID=""
-SECRET_KEY=""
+  # Create and use a custom fictional catalog
+  cp examples/custom-catalog.example.json examples/my-fictional-catalog.json
+  # Edit examples/my-fictional-catalog.json
+  bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
+EOF
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || {
+    printf 'Error: required command not found: %s\n' "$1" >&2
+    exit 1
+  }
+}
+
+ask_yes_no() {
+  local prompt="$1"
+  local default="${2:-y}"
+  local answer=""
+
+  while true; do
+    if [[ "$default" == "y" ]]; then
+      read -r -p "${prompt} [Y/n] " answer
+      answer="${answer:-y}"
+    else
+      read -r -p "${prompt} [y/N] " answer
+      answer="${answer:-n}"
+    fi
+
+    case "$answer" in
+      y|Y|yes|YES|Yes) return 0 ;;
+      n|N|no|NO|No) return 1 ;;
+      *) printf 'Please answer yes or no.\n' ;;
+    esac
+  done
+}
+
+prompt_value() {
+  local label="$1"
+  local default="${2:-}"
+  local value=""
+
+  if [[ -n "$default" ]]; then
+    read -r -p "${label} [${default}]: " value
+    value="${value:-$default}"
+  else
+    read -r -p "${label}: " value
+  fi
+
+  printf '%s' "$value"
+}
+
+prompt_secret() {
+  local value=""
+  read -r -s -p "Stripe test secret key (must begin with sk_test_): " value
+  printf '\n'
+  printf '%s' "$value"
+}
+
+validate_profile_id() {
+  [[ "$1" =~ ^profile_test_[A-Za-z0-9_]+$ ]]
+}
+
+validate_test_key() {
+  local key="$1"
+
+  [[ -n "$key" ]] &&
+    [[ "$key" == "${key#"${key%%[![:space:]]*}"}" ]] &&
+    [[ "$key" == "${key%"${key##*[![:space:]]}"}" ]] &&
+    [[ "$key" == sk_test_* ]] &&
+    [[ "${#key}" -gt 16 ]]
+}
+
+validate_catalog_file() {
+  local path="$1"
+
+  [[ -f "$path" ]] || {
+    printf 'Error: catalog file does not exist: %s\n' "$path" >&2
+    exit 1
+  }
+
+  [[ -r "$path" ]] || {
+    printf 'Error: catalog file is not readable: %s\n' "$path" >&2
+    exit 1
+  }
+
+  python3 -m json.tool "$path" >/dev/null 2>&1 || {
+    printf 'Error: catalog file is not valid JSON: %s\n' "$path" >&2
+    exit 1
+  }
+}
+
+extract_catalog_profile_id() {
+  local response_file="$1"
+
+  python3 - "$response_file" <<'PYTHON'
+import json
+import re
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    payload = json.load(f)
+
+candidates = [
+    payload.get("catalog_profile_id"),
+    payload.get("profile_id"),
+    payload.get("id"),
+]
+
+data = payload.get("data")
+if isinstance(data, dict):
+    candidates.extend([
+        data.get("catalog_profile_id"),
+        data.get("profile_id"),
+        data.get("id"),
+    ])
+
+for candidate in candidates:
+    if isinstance(candidate, str) and re.fullmatch(r"demo_catalog_profile_[A-Za-z0-9_-]+", candidate):
+        print(candidate)
+        sys.exit(0)
+
+sys.exit(1)
+PYTHON
+}
+
+register_catalog() {
+  local catalog_path="$1"
+  local http_status=""
+  local profile_id=""
+
+  TMP_RESPONSE_FILE="$(mktemp "${TMPDIR:-/tmp}/stripe-tech-cafe-catalog-response.XXXXXX")"
+
+  printf '\nRegistering fictional custom catalog with the hosted Machine Payments demo...\n'
+
+  if ! http_status="$(
+    curl \
+      --silent \
+      --show-error \
+      --output "$TMP_RESPONSE_FILE" \
+      --write-out '%{http_code}' \
+      --request POST \
+      --header 'Content-Type: application/json' \
+      --header "X-Demo-Stripe-Secret-Key: ${SECRET_KEY}" \
+      --header "X-Demo-Stripe-Profile-Id: ${PROFILE_ID}" \
+      --data-binary "@${catalog_path}" \
+      "$CATALOG_REGISTRATION_URL"
+  )"; then
+    printf 'Error: could not reach the hosted catalog-registration endpoint.\n' >&2
+    printf 'Check your network connection and confirm the hosted custom-catalog release is deployed.\n' >&2
+    exit 1
+  fi
+
+  if [[ "$http_status" != "200" && "$http_status" != "201" ]]; then
+    printf 'Error: catalog registration was rejected by the hosted service (HTTP %s).\n' "$http_status" >&2
+    printf 'Check that the catalog follows the documented fictional/test-mode schema.\n' >&2
+    exit 1
+  fi
+
+  if ! profile_id="$(extract_catalog_profile_id "$TMP_RESPONSE_FILE")"; then
+    printf 'Error: catalog registration succeeded but returned an unexpected response format.\n' >&2
+    printf 'Do not continue. Confirm the deployed API returns a demo_catalog_profile_... ID.\n' >&2
+    exit 1
+  fi
+
+  CATALOG_PROFILE_ID="$profile_id"
+  rm -f "$TMP_RESPONSE_FILE"
+  TMP_RESPONSE_FILE=""
+
+  printf '✓ Registered a custom fictional catalog for this local demo.\n'
+}
+
+write_env_file() {
+  TMP_ENV_FILE="${ENV_FILE}.tmp.$$"
+
+  umask 077
+  {
+    printf 'export MP_DEMO_STRIPE_PROFILE_ID=%q\n' "$PROFILE_ID"
+    printf 'export MP_DEMO_STRIPE_SECRET_KEY=%q\n' "$SECRET_KEY"
+
+    if [[ -n "${CATALOG_PROFILE_ID:-}" ]]; then
+      printf 'export MP_DEMO_CATALOG_PROFILE_ID=%q\n' "$CATALOG_PROFILE_ID"
+    fi
+
+    printf 'export CLAUDE_CODE_DANGEROUSLY_ALLOWED_MCP_SERVERS=%q\n' "$MCP_NAME"
+  } >"$TMP_ENV_FILE"
+
+  chmod 600 "$TMP_ENV_FILE"
+  mv -f "$TMP_ENV_FILE" "$ENV_FILE"
+  TMP_ENV_FILE=""
+
+  printf '✓ Wrote %s with mode 600.\n' "$ENV_FILE"
+}
+
+register_mcp() {
+  claude mcp remove "$MCP_NAME" >/dev/null 2>&1 || true
+
+  if [[ -n "${CATALOG_PROFILE_ID:-}" ]]; then
+    claude mcp add \
+      --transport http \
+      --scope user \
+      "$MCP_NAME" \
+      "$MCP_URL" \
+      --header 'X-Demo-Stripe-Secret-Key: ${MP_DEMO_STRIPE_SECRET_KEY}' \
+      --header 'X-Demo-Stripe-Profile-Id: ${MP_DEMO_STRIPE_PROFILE_ID}' \
+      --header 'X-Demo-Catalog-Profile-Id: ${MP_DEMO_CATALOG_PROFILE_ID}'
+  else
+    claude mcp add \
+      --transport http \
+      --scope user \
+      "$MCP_NAME" \
+      "$MCP_URL" \
+      --header 'X-Demo-Stripe-Secret-Key: ${MP_DEMO_STRIPE_SECRET_KEY}' \
+      --header 'X-Demo-Stripe-Profile-Id: ${MP_DEMO_STRIPE_PROFILE_ID}'
+  fi
+
+  printf '✓ Registered %s with Claude Code.\n' "$MCP_NAME"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --catalog)
+      [[ $# -ge 2 ]] || {
+        printf 'Error: --catalog requires a JSON-file path.\n' >&2
+        exit 1
+      }
+      [[ -z "$CATALOG_FILE" ]] || {
+        printf 'Error: --catalog may be supplied only once.\n' >&2
+        exit 1
+      }
+      CATALOG_FILE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Error: unknown option: %s\n\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+printf '\nStripe Tech Café — Machine Payments demo setup\n\n'
+
+require_command claude
+require_command curl
+require_command python3
+
+if [[ -n "$CATALOG_FILE" ]]; then
+  validate_catalog_file "$CATALOG_FILE"
+  printf 'Using custom fictional catalog: %s\n\n' "$CATALOG_FILE"
+fi
 
 if [[ -f "$ENV_FILE" ]]; then
+  printf 'Found an existing local demo environment; values will be offered as defaults.\n\n'
+
+  # This file is expected to be the mode-600 file generated by this script.
+  # Do not run this script if you do not trust the existing file.
   # shellcheck disable=SC1090
-  source "$ENV_FILE" 2>/dev/null || true
-  LDAP_HANDLE="${LDAP_HANDLE:-}"
-  PROFILE_ID="${MP_DEMO_STRIPE_PROFILE_ID:-}"
-  SECRET_KEY="${MP_DEMO_STRIPE_SECRET_KEY:-}"
-  echo -e "${YELLOW}Existing credentials found — press Enter to keep each value.${RESET}"
-  echo ""
+  source "$ENV_FILE"
+
+  OLD_PROFILE_ID="${MP_DEMO_STRIPE_PROFILE_ID:-}"
+  OLD_SECRET_KEY="${MP_DEMO_STRIPE_SECRET_KEY:-}"
+  OLD_CATALOG_PROFILE_ID="${MP_DEMO_CATALOG_PROFILE_ID:-}"
 fi
 
-# ── Prompt for values ────────────────────────────────────────────────────────
+printf 'Find your test-mode Stripe Profile ID at:\n'
+printf '  https://dashboard.stripe.com/test/profiles\n'
+printf 'Use the test-mode Network ID beginning with profile_test_.\n\n'
 
-echo -e "${BOLD}You'll be prompted for 3 values:${RESET}"
-echo ""
-printf "  %-20s %s\n" "LDAP handle"    "Your lowercase Stripe handle (e.g. jdoe)"
-printf "  %-20s %s\n" "Profile ID"     "Dashboard → Settings → Profile → Network ID (starts with profile_)"
-printf "  %-20s %s\n" "Secret key"     "Dashboard → Developers → API keys, test mode (starts with sk_test_)"
-echo ""
-
-# LDAP handle
-read -rp "Stripe LDAP handle${LDAP_HANDLE:+ [${LDAP_HANDLE}]}: " INPUT
-LDAP_HANDLE="${INPUT:-$LDAP_HANDLE}"
-if [[ -z "$LDAP_HANDLE" ]]; then
-  echo -e "${RED}✗ LDAP handle cannot be empty.${RESET}" && exit 1
-fi
-
-# Profile ID
-read -rp "Stripe Profile ID${PROFILE_ID:+ [${PROFILE_ID}]}: " INPUT
-PROFILE_ID="${INPUT:-$PROFILE_ID}"
-if [[ "$PROFILE_ID" != profile_* ]]; then
-  echo -e "${YELLOW}⚠ Profile ID should start with profile_ — continuing anyway.${RESET}"
-fi
-
-# Secret key
 while true; do
-  read -rp "Stripe secret key${SECRET_KEY:+ [${SECRET_KEY}]}: " INPUT
-  SECRET_KEY="${INPUT:-$SECRET_KEY}"
-  if [[ "$SECRET_KEY" == sk_test_* ]]; then
+  PROFILE_ID="$(prompt_value "Stripe test-mode Profile ID" "$OLD_PROFILE_ID")"
+
+  if validate_profile_id "$PROFILE_ID"; then
     break
   fi
-  echo -e "${YELLOW}⚠ Must start with sk_test_ — try again.${RESET}"
+
+  printf 'Profile ID must begin with profile_test_.\n'
 done
 
-# ── Write env file ───────────────────────────────────────────────────────────
+printf '\nFind a test-mode secret key at:\n'
+printf '  https://dashboard.stripe.com/test/apikeys\n'
+printf 'Use only an sk_test_ key. Live-mode keys are rejected.\n\n'
 
-cat > "$ENV_FILE" <<EOF
-# Machine Payments Summit — generated by setup.sh
-# Do not commit or share this file.
-export LDAP_HANDLE=${LDAP_HANDLE}
-export MP_DEMO_TEAM_ID=summit-${LDAP_HANDLE}-e2e
-export MP_DEMO_STRIPE_PROFILE_ID=${PROFILE_ID}
-export MP_DEMO_STRIPE_SECRET_KEY=${SECRET_KEY}
-export STRIPE_DIRECTORY_API_KEY=${DIRECTORY_API_KEY}
-export CLAUDE_CODE_DANGEROUSLY_ALLOWED_MCP_SERVERS=summit-booking-demo
-EOF
-
-chmod 600 "$ENV_FILE"
-echo ""
-echo -e "${GREEN}✓ Credentials saved to ${ENV_FILE}${RESET}"
-
-# ── Install / upgrade Stripe CLI and Directory plugin ────────────────────────
-
-echo ""
-echo "Checking Stripe CLI..."
-
-if command -v stripe &>/dev/null; then
-  brew upgrade stripe 2>/dev/null || true
-  echo -e "${GREEN}✓ Stripe CLI up to date${RESET}"
+if [[ -n "$OLD_SECRET_KEY" ]] && ask_yes_no "Reuse the existing test secret key?"; then
+  SECRET_KEY="$OLD_SECRET_KEY"
 else
-  echo -e "${YELLOW}Installing Stripe CLI via Homebrew...${RESET}"
-  brew install stripe/stripe-cli/stripe
-  echo -e "${GREEN}✓ Stripe CLI installed${RESET}"
+  while true; do
+    SECRET_KEY="$(prompt_secret)"
+
+    if validate_test_key "$SECRET_KEY"; then
+      break
+    fi
+
+    printf 'Invalid key. Enter a non-empty key beginning exactly with sk_test_ and with no surrounding whitespace.\n'
+  done
 fi
 
-echo "Installing Stripe Directory plugin..."
-stripe plugin install directory 2>/dev/null || stripe plugin upgrade directory 2>/dev/null || true
-echo -e "${GREEN}✓ Directory plugin ready${RESET}"
-
-# ── Register summit-directory Stripe CLI profile ─────────────────────────────
-
-STRIPE_CONFIG="$HOME/.config/stripe/config.toml"
-
-if [[ -f "$STRIPE_CONFIG" ]]; then
-  # Remove any existing summit-directory section (idempotent)
-  python3 - "$STRIPE_CONFIG" "$DIRECTORY_API_KEY" <<'PYEOF'
-import sys, re
-
-config_path = sys.argv[1]
-api_key     = sys.argv[2]
-
-with open(config_path, "r") as f:
-    content = f.read()
-
-# Remove existing [summit-directory] block if present
-content = re.sub(
-    r"\[summit-directory\][^\[]*",
-    "",
-    content,
-    flags=re.DOTALL
-).rstrip() + "\n"
-
-# Append new block
-content += f"""
-[summit-directory]
-account_id = 'acct_1Ty0D9PO6vgg8ena'
-device_name = 'summit-directory'
-display_name = 'summit-directory'
-live_mode_api_key = '{api_key}'
-profile_name = 'summit-directory'
-"""
-
-with open(config_path, "w") as f:
-    f.write(content)
-
-print("ok")
-PYEOF
-  echo -e "${GREEN}✓ Stripe CLI profile 'summit-directory' registered${RESET}"
-else
-  echo -e "${YELLOW}⚠ ~/.config/stripe/config.toml not found — skipping directory profile.${RESET}"
-  echo "  Run 'stripe login' first, then re-run this script."
+if ! validate_test_key "$SECRET_KEY"; then
+  printf 'Error: selected key is not a valid sk_test_ key.\n' >&2
+  exit 1
 fi
 
-# ── Auto-source on shell startup ─────────────────────────────────────────────
+CATALOG_PROFILE_ID=""
 
-SOURCE_LINE="source \"${ENV_FILE}\""
+if [[ -n "$CATALOG_FILE" ]]; then
+  register_catalog "$CATALOG_FILE"
+elif [[ -n "$OLD_CATALOG_PROFILE_ID" ]]; then
+  printf '\nStandard setup uses the default Stripe Tech Café catalog.\n'
+  printf 'Your previous custom-catalog selection will be removed from the local environment.\n'
+fi
 
-for RC_FILE in "$HOME/.zshrc" "$HOME/.bashrc"; do
-  if [[ -f "$RC_FILE" ]] && ! grep -qF "$ENV_FILE" "$RC_FILE"; then
-    echo "" >> "$RC_FILE"
-    echo "# Machine Payments Summit" >> "$RC_FILE"
-    echo "$SOURCE_LINE" >> "$RC_FILE"
-    echo -e "${GREEN}✓ Auto-source added to ${RC_FILE}${RESET}"
+printf '\n'
+if [[ -f "$ENV_FILE" ]]; then
+  if ! ask_yes_no "Overwrite ${ENV_FILE}?"; then
+    printf 'No changes made.\n'
+    exit 0
   fi
-done
+fi
 
-echo -e "${GREEN}✓ Variables will load automatically in all new terminals${RESET}"
+write_env_file
 
-# ── Register MCP server with Claude Code ────────────────────────────────────
+printf '\nA Link passkey is required before you run the payment exercise.\n'
+printf 'Set one up at: https://app.link.com/settings\n'
+printf 'Link verifies your test payment through mobile biometrics in the Link app,\n'
+printf 'or through your laptop/browser-device password when using browser Link.\n\n'
 
-echo ""
-echo "Registering summit-booking-demo MCP server..."
+if ask_yes_no "Register '${MCP_NAME}' with Claude Code now?"; then
+  register_mcp
+fi
 
-# Remove any stale registration first (idempotent)
-claude mcp remove summit-booking-demo >/dev/null 2>&1 || true
+printf '\nLast step — open a fresh shell, then run:\n\n'
+printf '  source ~/.machine-payments-summit.env\n'
+printf '  claude mcp list\n'
+printf '  claude\n\n'
 
-# Register with HTTP transport — headers use single quotes so raw ${VAR}
-# references are stored in Claude config, not the actual secret values.
-claude mcp add \
-  --transport http \
-  --scope user \
-  summit-booking-demo \
-  https://machine-payments.stripedemos.com/mcp \
-  --header 'X-Demo-Stripe-Secret-Key: ${MP_DEMO_STRIPE_SECRET_KEY}' \
-  --header 'X-Demo-Stripe-Profile-Id: ${MP_DEMO_STRIPE_PROFILE_ID}' \
-  --header 'X-Demo-Team-Id: ${MP_DEMO_TEAM_ID}'
-
-echo -e "${GREEN}✓ MCP server registered${RESET}"
-
-# ── Done ─────────────────────────────────────────────────────────────────────
-
-echo ""
-echo -e "${BOLD}Setup complete!${RESET}"
-echo ""
-echo "Activate in this terminal:"
-echo ""
-echo -e "  ${BOLD}source ~/.machine-payments-summit.env${RESET}"
-echo ""
-echo "Then verify and launch Claude:"
-echo ""
-echo "  claude mcp list   # confirm summit-booking-demo shows ✓ Connected"
-echo "  claude"
-echo ""
+if [[ -n "${CATALOG_PROFILE_ID:-}" ]]; then
+  printf 'Your Claude Code demo will use your registered custom fictional catalog.\n'
+  printf 'The public Stripe Tech Café website remains unchanged.\n'
+else
+  printf 'Your Claude Code demo will use the default Stripe Tech Café catalog.\n'
+fi
