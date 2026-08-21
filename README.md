@@ -16,9 +16,10 @@ The public [Stripe Tech Café page](https://machine-payments.stripedemos.com/) i
 You need:
 
 1. Claude Code installed and signed in.
-2. A Stripe test-mode secret key beginning with `sk_test_`.
-3. A test-mode Stripe Business Network Profile ID beginning with `profile_test_`.
-4. A Link passkey configured for the Link account you will use in the exercise.
+2. Link CLI installed.
+3. A Stripe test-mode secret key beginning with `sk_test_`.
+4. A test-mode Stripe Business Network Profile ID beginning with `profile_test_`.
+5. A Link passkey configured for the Link account you will use in the exercise.
 
 Set up your Link passkey before beginning:
 
@@ -40,12 +41,16 @@ Run:
 
     bash ./setup.sh
 
-The script asks for:
+The script verifies that Link CLI supports the required Machine Payments test-mode flow before it asks for Stripe credentials.
+
+It then asks for:
 
 1. Your test-mode Stripe Profile ID (`profile_test_...`).
 2. Your Stripe test-mode secret key (`sk_test_...`).
 
-It saves your local configuration to:
+The secret-key input is visible while you type or paste it so you can confirm it pasted correctly. Do not share your screen, paste your key into chat, include it in screenshots, or commit it to source control.
+
+The script saves your local configuration to:
 
     ~/.machine-payments-summit.env
 
@@ -65,11 +70,38 @@ Ask Claude:
 
 Without a custom catalog, Claude discovers the default Stripe Tech Café menu.
 
-### Security-key prompt while updating Claude Code
+## Link CLI compatibility check
+
+The workshop requires Link CLI's full test-mode MPP payment flow. Setup verifies that the installed CLI supports both:
+
+- `link-cli mpp pay --test`
+- `link-cli mpp pay --context`
+
+If setup says your Link CLI is too old, choose the update option or run:
+
+    npm install -g @stripe/link-cli
+
+Then open a fresh terminal and confirm:
+
+    link-cli --version
+    link-cli mpp pay --schema
+
+The schema must include both `test` and `context`.
+
+If your terminal reports that an update was installed but `link-cli --version` remains unchanged, check which executable your shell is using:
+
+    command -v link-cli
+    type -a link-cli
+    npm prefix -g
+    npm list -g --depth=0 @stripe/link-cli
+
+The initial Link CLI update or authentication can request Stripe authentication or a hardware security key. Touch the security key if prompted. A short pause while that authentication prompt is active is expected.
+
+## Security-key prompt while updating Claude Code
 
 During setup or reset, Claude Code may request Stripe authentication before it can add or remove the `summit-booking-demo` MCP configuration.
 
-If the terminal appears to pause at the Claude MCP step, check for a browser, macOS, or hardware-security-key prompt. Touch your security key and wait for the authentication step to finish. This is expected and does not mean the setup script has hung.
+If the terminal appears to pause at the Claude MCP step, check for a browser, macOS, terminal, or hardware-security-key prompt. Touch your security key and wait for authentication to finish. This is expected and does not mean the setup script has hung.
 
 Do not paste your Stripe secret key into Claude Code, chat, screenshots, recordings, or source control.
 
@@ -150,7 +182,7 @@ To return to the default Stripe Tech Café catalog, run standard setup again wit
 
 ## Reset local setup
 
-For a complete local reset, including removal of variables from your current terminal, run:
+For a complete local reset, including removal of demo variables from your current terminal, run:
 
     source ./reset.sh
 
