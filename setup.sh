@@ -37,28 +37,27 @@ cleanup() {
 trap cleanup EXIT
 
 usage() {
-  cat <<'EOF'
-Stripe Tech Café — Machine Payments demo setup
-
-Usage:
-  bash ./setup.sh
-  bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
-
-Options:
-  --catalog PATH   Register a fictional JSON catalog for this Claude Code demo.
-                   The custom catalog appears through MCP/Claude Code only.
-                   It does not change the public Stripe Tech Café website.
-  -h, --help       Show this help text.
-
-Examples:
-  # Standard Stripe Tech Café catalog
-  bash ./setup.sh
-
-  # Create and use a custom fictional catalog
-  cp examples/custom-catalog.example.json examples/my-fictional-catalog.json
-  # Edit examples/my-fictional-catalog.json
-  bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
-EOF
+  printf '%s\n' \
+    'Stripe Tech Café — Machine Payments demo setup' \
+    '' \
+    'Usage:' \
+    '  bash ./setup.sh' \
+    '  bash ./setup.sh --catalog ./examples/my-fictional-catalog.json' \
+    '' \
+    'Options:' \
+    '  --catalog PATH   Register a fictional JSON catalog for this Claude Code demo.' \
+    '                   The custom catalog appears through MCP/Claude Code only.' \
+    '                   It does not change the public Stripe Tech Café website.' \
+    '  -h, --help       Show this help text.' \
+    '' \
+    'Examples:' \
+    '  # Standard Stripe Tech Café catalog' \
+    '  bash ./setup.sh' \
+    '' \
+    '  # Create and use a custom fictional catalog' \
+    '  cp examples/custom-catalog.example.json examples/my-fictional-catalog.json' \
+    '  # Edit examples/my-fictional-catalog.json' \
+    '  bash ./setup.sh --catalog ./examples/my-fictional-catalog.json'
 }
 
 require_command() {
@@ -108,7 +107,7 @@ prompt_value() {
 prompt_secret() {
   local value=""
 
-  # Intentionally visible so attendees can confirm that their key pasted
+  # Intentionally visible so attendees can confirm that the key pasted
   # correctly. Never share the key in chat, screenshots, recordings, or git.
   read -r -p "Stripe test secret key (must begin with sk_test_): " value
   printf '%s' "$value"
@@ -218,10 +217,17 @@ extract_catalog_profile_id() {
   python3 -c 'import json,re,sys;p=json.load(open(sys.argv[1]));d=p.get("data",{});c=[p.get(k) for k in ("catalog_profile_id","profile_id","id")]+([d.get(k) for k in ("catalog_profile_id","profile_id","id")] if isinstance(d,dict) else []);x=next((v for v in c if isinstance(v,str) and re.fullmatch(r"demo_catalog_profile_[A-Za-z0-9_-]+",v)),None);sys.exit(1) if x is None else print(x)' "$response_file"
 }
 
+extract_safe_catalog_error() {
+  local response_file="$1"
+
+  python3 -c 'import json,sys;p=json.load(open(sys.argv[1]));e=p.get("error",{});e=e if isinstance(e,dict) else {};code=e.get("code") or p.get("code") or "";message=e.get("message") or p.get("message") or "";print((code + ": " if code else "") + message)' "$response_file" 2>/dev/null || true
+}
+
 register_catalog() {
   local catalog_path="$1"
   local http_status=""
   local profile_id=""
+  local safe_error=""
 
   TMP_RESPONSE_FILE="$(mktemp "${TMPDIR:-/tmp}/stripe-tech-cafe-catalog-response.XXXXXX")"
 
@@ -246,14 +252,22 @@ register_catalog() {
   fi
 
   if [[ "$http_status" != "200" && "$http_status" != "201" ]]; then
+    safe_error="$(extract_safe_catalog_error "$TMP_RESPONSE_FILE")"
+
     printf 'Error: catalog registration was rejected by the hosted service (HTTP %s).\n' "$http_status" >&2
-    printf 'Check that the catalog follows the documented fictional/test-mode schema.\n' >&2
+
+    if [[ -n "$safe_error" ]]; then
+      printf 'Hosted service detail: %s\n' "$safe_error" >&2
+    else
+      printf 'The hosted service did not return a readable sanitized error message.\n' >&2
+    fi
+
     exit 1
   fi
 
   if ! profile_id="$(extract_catalog_profile_id "$TMP_RESPONSE_FILE")"; then
     printf 'Error: catalog registration returned an unexpected response format.\n' >&2
-    printf 'Confirm the deployed API returns a demo_catalog_profile_... ID.\n' >&2
+    printf 'The hosted service did not return a valid catalog profile ID.\n' >&2
     exit 1
   fi
 
