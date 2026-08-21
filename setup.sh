@@ -8,11 +8,11 @@
 # Custom fictional catalog:
 #   bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
 #
-# This script stores your test-mode Stripe credentials only in:
+# This script stores attendee test-mode Stripe credentials only in:
 #   ~/.machine-payments-summit.env
 #
 # It registers the hosted MCP server with Claude Code. It does not start a
-# local application, require npm, or change the static Stripe Tech Café page.
+# local application or change the static Stripe Tech Café webpage.
 
 set -Eeuo pipefail
 
@@ -22,6 +22,7 @@ MCP_URL="https://machine-payments.stripedemos.com/mcp"
 CATALOG_REGISTRATION_URL="https://machine-payments.stripedemos.com/api/catalog-profiles"
 
 CATALOG_FILE=""
+CATALOG_PROFILE_ID=""
 TMP_ENV_FILE=""
 TMP_RESPONSE_FILE=""
 
@@ -107,8 +108,8 @@ prompt_value() {
 prompt_secret() {
   local value=""
 
-  # Intentionally visible so workshop attendees can paste and confirm the key.
-  # Never paste this key into chat, a screenshot, source control, or recordings.
+  # Intentionally visible so attendees can confirm that their key pasted
+  # correctly. Never share the key in chat, screenshots, recordings, or git.
   read -r -p "Stripe test secret key (must begin with sk_test_): " value
   printf '%s' "$value"
 }
@@ -125,6 +126,71 @@ validate_test_key() {
     [[ "$key" == "${key%"${key##*[![:space:]]}"}" ]] &&
     [[ "$key" == sk_test_* ]] &&
     [[ "${#key}" -gt 16 ]]
+}
+
+ensure_link_cli_mpp_support() {
+  local schema=""
+  local version=""
+
+  require_command link-cli
+
+  version="$(link-cli --version 2>/dev/null || printf 'unknown')"
+
+  if ! schema="$(link-cli mpp pay --schema 2>&1)"; then
+    printf '\nError: could not inspect the installed Link CLI MPP command.\n' >&2
+    printf 'Run this manually, complete any required authentication, then retry setup:\n\n' >&2
+    printf '  link-cli mpp pay --schema\n\n' >&2
+    exit 1
+  fi
+
+  if printf '%s\n' "$schema" | grep -Fq 'context:' && \
+     printf '%s\n' "$schema" | grep -Fq 'test:'; then
+    printf '✓ Link CLI %s supports the required MPP test-mode flow.\n' "$version"
+    return 0
+  fi
+
+  printf '\nYour installed Link CLI (%s) is too old for this Machine Payments workshop.\n' "$version" >&2
+  printf 'The workshop requires link-cli mpp pay to support both --test and --context.\n\n' >&2
+
+  if ! command -v npm >/dev/null 2>&1; then
+    printf 'Install a current Link CLI, then rerun setup:\n\n' >&2
+    printf '  npm install -g @stripe/link-cli\n\n' >&2
+    exit 1
+  fi
+
+  if ask_yes_no "Update Link CLI now with npm install -g @stripe/link-cli?"; then
+    printf '\nUpdating Link CLI...\n'
+
+    if ! npm install -g @stripe/link-cli; then
+      printf '\nError: Link CLI update failed. Resolve the npm error, then rerun setup.\n' >&2
+      exit 1
+    fi
+
+    # Clear Bash's executable-location cache in this setup process.
+    hash -r 2>/dev/null || true
+
+    version="$(link-cli --version 2>/dev/null || printf 'unknown')"
+
+    if ! schema="$(link-cli mpp pay --schema 2>&1)" || \
+       ! printf '%s\n' "$schema" | grep -Fq 'context:' || \
+       ! printf '%s\n' "$schema" | grep -Fq 'test:'; then
+      printf '\nError: the Link CLI available on your PATH is still missing --test or --context.\n' >&2
+      printf 'Open a fresh terminal and run:\n\n' >&2
+      printf '  command -v link-cli\n' >&2
+      printf '  link-cli --version\n' >&2
+      printf '  link-cli mpp pay --schema\n\n' >&2
+      printf 'If necessary, use your supported internal Link CLI installation path.\n' >&2
+      exit 1
+    fi
+
+    printf '✓ Link CLI %s now supports the required MPP test-mode flow.\n' "$version"
+    return 0
+  fi
+
+  printf '\nSetup stopped because Link CLI must support --test and --context.\n' >&2
+  printf 'Update it, then rerun setup:\n\n' >&2
+  printf '  npm install -g @stripe/link-cli\n\n' >&2
+  exit 1
 }
 
 validate_catalog_file() {
@@ -149,35 +215,7 @@ validate_catalog_file() {
 extract_catalog_profile_id() {
   local response_file="$1"
 
-  python3 - "$response_file" <<'PYTHON'
-import json
-import re
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    payload = json.load(f)
-
-candidates = [
-    payload.get("catalog_profile_id"),
-    payload.get("profile_id"),
-    payload.get("id"),
-]
-
-data = payload.get("data")
-if isinstance(data, dict):
-    candidates.extend([
-        data.get("catalog_profile_id"),
-        data.get("profile_id"),
-        data.get("id"),
-    ])
-
-for candidate in candidates:
-    if isinstance(candidate, str) and re.fullmatch(r"demo_catalog_profile_[A-Za-z0-9_-]+", candidate):
-        print(candidate)
-        sys.exit(0)
-
-sys.exit(1)
-PYTHON
+  python3 -c 'import json,re,sys;p=json.load(open(sys.argv[1]));d=p.get("data",{});c=[p.get(k) for k in ("catalog_profile_id","profile_id","id")]+([d.get(k) for k in ("catalog_profile_id","profile_id","id")] if isinstance(d,dict) else []);x=next((v for v in c if isinstance(v,str) and re.fullmatch(r"demo_catalog_profile_[A-Za-z0-9_-]+",v)),None);sys.exit(1) if x is None else print(x)' "$response_file"
 }
 
 register_catalog() {
@@ -214,8 +252,8 @@ register_catalog() {
   fi
 
   if ! profile_id="$(extract_catalog_profile_id "$TMP_RESPONSE_FILE")"; then
-    printf 'Error: catalog registration succeeded but returned an unexpected response format.\n' >&2
-    printf 'Do not continue. Confirm the deployed API returns a demo_catalog_profile_... ID.\n' >&2
+    printf 'Error: catalog registration returned an unexpected response format.\n' >&2
+    printf 'Confirm the deployed API returns a demo_catalog_profile_... ID.\n' >&2
     exit 1
   fi
 
@@ -249,7 +287,19 @@ write_env_file() {
 }
 
 register_mcp() {
-  claude mcp remove "$MCP_NAME" >/dev/null 2>&1 || true
+  printf '\nUpdating the Claude Code MCP configuration.\n'
+  printf 'Claude Code may request Stripe authentication or a hardware security key.\n'
+  printf 'If prompted in your browser, macOS, terminal, or on the key itself, touch\n'
+  printf 'your security key and wait for authentication to complete.\n'
+  printf 'A short pause during this step is expected and is not a script hang.\n\n'
+
+  # Do not suppress output. Authentication or hardware-security-key prompts
+  # must remain visible to the attendee.
+  if claude mcp remove "$MCP_NAME"; then
+    printf '✓ Removed existing Claude MCP server: %s\n' "$MCP_NAME"
+  else
+    printf '• No existing Claude MCP server was removed, or authentication was cancelled.\n'
+  fi
 
   if [[ -n "${CATALOG_PROFILE_ID:-}" ]]; then
     claude mcp add \
@@ -304,6 +354,7 @@ printf '\nStripe Tech Café — Machine Payments demo setup\n\n'
 require_command claude
 require_command curl
 require_command python3
+ensure_link_cli_mpp_support
 
 if [[ -n "$CATALOG_FILE" ]]; then
   validate_catalog_file "$CATALOG_FILE"
@@ -314,7 +365,7 @@ if [[ -f "$ENV_FILE" ]]; then
   printf 'Found an existing local demo environment; values will be offered as defaults.\n\n'
 
   # This file is expected to be the mode-600 file generated by this script.
-  # Do not run this script if you do not trust the existing file.
+  # Do not run setup if you do not trust the existing file.
   # shellcheck disable=SC1090
   source "$ENV_FILE"
 
@@ -340,7 +391,7 @@ done
 printf '\nFind a test-mode secret key at:\n'
 printf '  https://dashboard.stripe.com/test/apikeys\n'
 printf 'Use only an sk_test_ key. Live-mode keys are rejected.\n'
-printf 'The key is visible while you paste it—do not share your screen or paste it into chat.\n\n'
+printf 'The key is visible while you paste it. Do not share your screen or paste it into chat.\n\n'
 
 if [[ -n "$OLD_SECRET_KEY" ]] && ask_yes_no "Reuse the existing test secret key?"; then
   SECRET_KEY="$OLD_SECRET_KEY"
@@ -356,9 +407,11 @@ else
   done
 fi
 
-if ! validate_test_key "$SECRET_KEY"; then
-  printf 'Error: selected key is not a valid sk_test_ key.\n' >&2
-  exit 1
+if [[ -f "$ENV_FILE" ]]; then
+  if ! ask_yes_no "Overwrite ${ENV_FILE}?"; then
+    printf 'No changes made.\n'
+    exit 0
+  fi
 fi
 
 CATALOG_PROFILE_ID=""
@@ -368,14 +421,6 @@ if [[ -n "$CATALOG_FILE" ]]; then
 elif [[ -n "$OLD_CATALOG_PROFILE_ID" ]]; then
   printf '\nStandard setup uses the default Stripe Tech Café catalog.\n'
   printf 'Your previous custom-catalog selection will be removed from the local environment.\n'
-fi
-
-printf '\n'
-if [[ -f "$ENV_FILE" ]]; then
-  if ! ask_yes_no "Overwrite ${ENV_FILE}?"; then
-    printf 'No changes made.\n'
-    exit 0
-  fi
 fi
 
 write_env_file
