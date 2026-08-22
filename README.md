@@ -92,7 +92,9 @@ After payment, verify the `pi_...` PaymentIntent in the same Stripe test-mode sa
 
 Custom catalogs are optional and appear only through Claude Code/MCP. They do not change the public Stripe Tech Café website.
 
-Start with the example catalog:
+### Recommended: instant fictional catalog
+
+Start with the default example:
 
     cp examples/custom-catalog.example.json examples/my-fictional-catalog.json
 
@@ -114,6 +116,22 @@ Then start a fresh Claude Code session:
 Ask Claude to show the custom menu, choose an item, review the exact quote, and complete the same explicit-approval and Link test-mode flow.
 
 A successful registration creates an opaque local catalog-profile reference. Do not share that reference, your credentials, raw headers, or the full catalog-registration response.
+
+### Advanced: scheduled fictional catalog
+
+The default custom-catalog example uses `instant` and is recommended for normal demos.
+
+Use the scheduled example only when you intentionally want to demonstrate advanced pickup-window or simulated-service-window behavior:
+
+    cp examples/custom-catalog.scheduled.example.json examples/my-scheduled-catalog.json
+    bash ./setup.sh --catalog ./examples/my-scheduled-catalog.json
+
+The scheduled example uses the supported fulfillment types:
+
+    "fulfillment_type": "pickup_window"
+    "fulfillment_type": "agent_delivery_window"
+
+Scheduled examples can show fulfillment windows and timing details. They still never create a real pickup, delivery, service, external task, research request, ticket, message, customer-data access, or deliverable.
 
 ## Return to the default menu
 
