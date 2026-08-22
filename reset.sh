@@ -1,43 +1,33 @@
 #!/usr/bin/env bash
 #
-# Stripe Tech Café — local attendee reset
+# Stripe Tech Café — Machine Payments demo reset
 #
 # Recommended:
 #   source ./reset.sh
 #
-# Running `bash ./reset.sh` removes local files and can remove the Claude MCP
-# registration, but cannot unset variables already loaded into your current
-# terminal. Sourcing this script clears those variables too.
-#
-# This script removes local setup only. It does not delete hosted catalog
-# profiles, holds, payment records, or another person's data.
+# Running "bash ./reset.sh" removes the local file and MCP configuration, but it
+# cannot unset variables already loaded into the current parent shell.
 
-set -Eeuo pipefail
-
-ENV_FILE="${HOME}/.machine-payments-summit.env"
-MCP_NAME="summit-booking-demo"
+ENV_FILE="${HOME}/.mpp-demo.env"
+MCP_NAME="mpp-demo"
 
 is_sourced() {
   [[ "${BASH_SOURCE[0]}" != "$0" ]]
 }
 
-finish() {
-  local code="${1:-0}"
-
-  if is_sourced; then
-    return "$code"
-  fi
-
-  exit "$code"
-}
-
 ask_yes_no() {
   local prompt="$1"
+  local default="${2:-y}"
   local answer=""
 
   while true; do
-    read -r -p "${prompt} [y/N] " answer
-    answer="${answer:-n}"
+    if [[ "$default" == "y" ]]; then
+      read -r -p "${prompt} [Y/n] " answer
+      answer="${answer:-y}"
+    else
+      read -r -p "${prompt} [y/N] " answer
+      answer="${answer:-n}"
+    fi
 
     case "$answer" in
       y|Y|yes|YES|Yes) return 0 ;;
@@ -47,96 +37,53 @@ ask_yes_no() {
   done
 }
 
-unset_demo_environment() {
-  # Current individual-run variables.
-  unset MP_DEMO_STRIPE_PROFILE_ID 2>/dev/null || true
-  unset MP_DEMO_STRIPE_SECRET_KEY 2>/dev/null || true
-  unset MP_DEMO_CATALOG_PROFILE_ID 2>/dev/null || true
-  unset CLAUDE_CODE_DANGEROUSLY_ALLOWED_MCP_SERVERS 2>/dev/null || true
+printf '\nStripe Tech Café — Machine Payments demo reset\n\n'
 
-  # Legacy variables from older workshop setup versions.
-  unset LDAP_HANDLE 2>/dev/null || true
-  unset MP_DEMO_TEAM_ID 2>/dev/null || true
-  unset STRIPE_DIRECTORY_API_KEY 2>/dev/null || true
-}
-
-printf '\nStripe Tech Café — local demo reset\n\n'
-
-if is_sourced; then
-  printf 'This script is sourced, so it can remove local setup and clear Machine Payments\n'
-  printf 'variables from your current terminal.\n\n'
-else
-  printf 'This script was started with bash. It can remove local setup files, but it\n'
-  printf 'cannot clear variables already loaded in your current terminal.\n'
-  printf 'For a complete reset, run: source ./reset.sh\n\n'
-fi
-
-printf 'This reset can:\n'
-printf '  - remove %s\n' "$ENV_FILE"
-printf '  - clear current and legacy Machine Payments variables when sourced\n'
-printf '  - optionally remove the Claude MCP registration: %s\n' "$MCP_NAME"
-printf '\nIt does not delete hosted catalog profiles, holds, payment records, or another person'\''s data.\n\n'
-
-if ! ask_yes_no "Continue"; then
-  printf 'No changes made.\n'
-  finish 0
-fi
-
-# Complete local cleanup before any Claude CLI invocation. This ensures an MFA
-# prompt cannot prevent removal of the local environment file.
 if [[ -f "$ENV_FILE" ]]; then
   rm -f "$ENV_FILE"
-  printf '✓ Removed local environment file: %s\n' "$ENV_FILE"
+  printf '✓ Removed %s\n' "$ENV_FILE"
 else
-  printf '• Local environment file was not present.\n'
+  printf '• No local environment file found at %s\n' "$ENV_FILE"
 fi
-
-unset_demo_environment
 
 if is_sourced; then
-  printf '✓ Cleared Machine Payments variables from the current shell.\n'
+  unset MP_DEMO_STRIPE_PROFILE_ID
+  unset MP_DEMO_STRIPE_SECRET_KEY
+  unset MP_DEMO_CATALOG_PROFILE_ID
+  unset CLAUDE_CODE_DANGEROUSLY_ALLOWED_MCP_SERVERS
+
+  printf '✓ Cleared Machine Payments variables from this shell.\n'
 else
-  printf '• Cleared variables in the reset process only.\n'
+  printf '\nNote: this script was run in a child shell, so it cannot clear variables\n'
+  printf 'already loaded into your current terminal. For a full reset, run:\n\n'
+  printf '  source ./reset.sh\n\n'
 fi
 
-if command -v claude >/dev/null 2>&1; then
-  printf '\nRemoving the Claude Code MCP registration may require Stripe authentication.\n'
-  printf 'If your browser, macOS, terminal, or hardware security key prompts you,\n'
-  printf 'touch your security key and wait for authentication to complete.\n'
-  printf 'A short pause during this step is expected and is not a script hang.\n\n'
+printf '\nThe reset does not delete hosted catalog profiles, test PaymentIntents, orders,\n'
+printf 'or any other attendee’s state.\n\n'
 
-  if ask_yes_no "Remove the '${MCP_NAME}' MCP registration now?"; then
-    # Do not suppress output: the Claude CLI may need to show an authentication
-    # or hardware-security-key prompt.
+if command -v claude >/dev/null 2>&1; then
+  if ask_yes_no "Remove '${MCP_NAME}' from Claude Code?"; then
+    printf '\nClaude Code may request Stripe authentication or a hardware security key.\n'
+    printf 'If prompted, complete the request and wait. A short pause is expected.\n\n'
+
+    # Do not suppress output. Authentication and hardware-key prompts must remain visible.
     if claude mcp remove "$MCP_NAME"; then
       printf '✓ Removed Claude MCP server: %s\n' "$MCP_NAME"
     else
-      printf '• Could not remove the Claude MCP server.\n'
-      printf '  Local environment cleanup is complete. Retry later with:\n\n'
-      printf '  claude mcp remove %s\n' "$MCP_NAME"
+      printf '• Claude MCP server was not removed, was already absent, or authentication was cancelled.\n'
     fi
   else
-    printf '• Left the Claude MCP registration in place.\n'
-    printf '  Remove it later with:\n\n'
-    printf '  claude mcp remove %s\n' "$MCP_NAME"
+    printf '• Left the Claude MCP server registration unchanged.\n'
   fi
 else
-  printf '\n• Claude Code was not found; skipped MCP removal.\n'
+  printf '• Claude Code is not available on PATH; no MCP registration was removed.\n'
 fi
 
 printf '\nReset complete.\n'
 
 if ! is_sourced; then
-  printf '\nYour current terminal may still retain old values because this script ran in a child process.\n'
-  printf 'Run this command now, or close and reopen your terminal:\n\n'
-  printf '  unset LDAP_HANDLE MP_DEMO_TEAM_ID MP_DEMO_STRIPE_PROFILE_ID \\\n'
-  printf '    MP_DEMO_STRIPE_SECRET_KEY MP_DEMO_CATALOG_PROFILE_ID \\\n'
-  printf '    STRIPE_DIRECTORY_API_KEY CLAUDE_CODE_DANGEROUSLY_ALLOWED_MCP_SERVERS\n'
+  exit 0
 fi
 
-printf '\nTo configure the default Stripe Tech Café demo again:\n\n'
-printf '  bash ./setup.sh\n\n'
-printf 'To configure a custom fictional catalog:\n\n'
-printf '  bash ./setup.sh --catalog ./examples/my-fictional-catalog.json\n'
-
-finish 0
+return 0
