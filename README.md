@@ -49,9 +49,7 @@ The script prompts for:
 
 The secret-key prompt is intentionally visible so you can verify that the key pasted correctly. Do not share your screen or terminal while entering it.
 
-The script checks your Link CLI installation. If the installed version does not support the required MPP options, it can offer to run:
-
-    npm install -g @stripe/link-cli
+The script checks your Link CLI installation. If Link CLI is missing or does not support the required MPP options, setup can offer to install or update it.
 
 During Claude MCP registration, corporate authentication or a hardware security-key prompt may appear. Output remains visible. Complete the prompt and wait rather than interrupting the script.
 
@@ -161,47 +159,77 @@ If Claude requests authentication or a hardware security-key confirmation while 
 
 ## Troubleshooting
 
-### Link CLI does not support `--test` or `--context`
+### `link-cli` is missing or does not support the required MPP options
 
-Allow setup to update Link CLI. If your terminal still resolves an older binary afterward, open a fresh terminal and run:
+Setup checks whether Link CLI supports both `--test` and `--context`.
+
+If Link CLI is missing, allow setup to install it. If it is installed but too old, allow setup to update it.
+
+If your terminal still resolves an older binary afterward, open a fresh terminal and run:
 
     command -v link-cli
     type -a link-cli
     link-cli --version
     link-cli mpp pay --schema
 
-### Custom catalog registration fails
+The schema output must include both `test:` and `context:`.
 
-The setup script displays only the hosted service’s sanitized HTTP status, error code, and safe message.
+### Setup appears paused during Claude MCP registration
 
-Do not share:
+Corporate authentication or a hardware security-key prompt may appear when setup removes or adds the Claude MCP server.
 
-- secret keys;
-- Network Profile IDs;
-- headers;
-- authorization values;
-- Shared Payment Tokens;
-- catalog-profile IDs;
-- raw API responses; or
-- full catalog JSON.
+The script intentionally leaves Claude CLI output visible. Complete the browser, macOS, terminal, or security-key prompt, then wait for the command to finish. Do not interrupt the script or suppress its output.
 
 ### `mpp-demo` does not appear in Claude Code
 
-Run:
+Open a fresh terminal and run:
 
     source ~/.mpp-demo.env
     claude mcp list
 
-If it is still missing, rerun setup and choose to register the MCP server.
+If `mpp-demo` is still absent, rerun setup from the repository directory:
 
-## Security boundary
+    bash ./setup.sh
 
-`MPP_SECRET_KEY` is a server-owned deployment secret. It is not an attendee credential and must never be added to:
+When prompted, choose to register the MCP server. Then start a new Claude Code session:
 
-- this repository;
-- `~/.mpp-demo.env`;
-- Claude MCP headers;
-- shell startup files;
-- screenshots;
-- chat; or
-- documentation.
+    claude
+
+### A custom catalog is rejected
+
+The setup script displays only a sanitized HTTP status, error code, and safe message.
+
+Check that:
+
+- the catalog is valid JSON;
+- every standard item uses `"fulfillment_type": "instant"`;
+- advanced scheduled items use only `"pickup_window"` or `"agent_delivery_window"`;
+- each item references a valid `counter_id`; and
+- the catalog includes a clear fictional/test-mode disclaimer.
+
+When reporting an issue, share only the HTTP status and the sanitized error code/message. Do not share credentials, Profile IDs, headers, approval URLs, tokens, raw API responses, or the full catalog JSON.
+
+### Claude shows the wrong catalog
+
+The default menu is used whenever setup runs without `--catalog`.
+
+To return to the default Stripe Tech Café menu:
+
+    bash ./setup.sh
+
+To use a custom catalog again:
+
+    bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
+
+After either change, open a fresh terminal and run:
+
+    source ~/.mpp-demo.env
+    claude
+
+### I need to start over
+
+From the repository directory, run:
+
+    source ./reset.sh
+
+This removes the local environment file and can remove the `mpp-demo` Claude MCP registration. It does not delete test PaymentIntents, hosted catalog profiles, or another person’s demo state.
