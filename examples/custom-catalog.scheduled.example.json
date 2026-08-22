@@ -1,0 +1,61 @@
+{
+  "business_name": "Orbit Coffee & Concierge — Fictional Scheduled Demo",
+  "business_type": "fictional scheduled pickup and simulated-service demonstration",
+  "disclaimer": "This is a fictional test-mode Machine Payments demonstration. No real order is placed, no food or drink is prepared, no pickup or delivery occurs, and no external work, research, ticket, message, customer-data access, or deliverable is created.",
+  "counters": [
+    {
+      "id": "counter_scheduled_pickup",
+      "name": "Scheduled Pickup Counter",
+      "fulfillment_type": "pickup_window",
+      "fulfillment_label": "Fictional scheduled pickup window — no actual pickup"
+    },
+    {
+      "id": "counter_scheduled_concierge",
+      "name": "Scheduled Concierge Counter",
+      "fulfillment_type": "agent_delivery_window",
+      "fulfillment_label": "Fictional scheduled service window — no external work or delivery"
+    }
+  ],
+  "items": [
+    {
+      "id": "item_scheduled_cold_brew",
+      "counter_id": "counter_scheduled_pickup",
+      "name": "Scheduled Cold Brew",
+      "description": "A fictional test-mode coffee item used to demonstrate scheduled pickup-window behavior.",
+      "amount": 425,
+      "currency": "usd",
+      "fulfillment_type": "pickup_window",
+      "fulfillment_label": "Fictional scheduled pickup window — no actual pickup"
+    },
+    {
+      "id": "item_scheduled_pastry_box",
+      "counter_id": "counter_scheduled_pickup",
+      "name": "Scheduled Pastry Box",
+      "description": "A fictional test-mode bakery bundle used to demonstrate scheduled pickup-window behavior.",
+      "amount": 895,
+      "currency": "usd",
+      "fulfillment_type": "pickup_window",
+      "fulfillment_label": "Fictional scheduled pickup window — no actual pickup"
+    },
+    {
+      "id": "item_call_warmup",
+      "counter_id": "counter_scheduled_concierge",
+      "name": "Customer-Call Warmup",
+      "description": "A fictional test-mode simulated service item used to demonstrate scheduled agent-delivery behavior.",
+      "amount": 350,
+      "currency": "usd",
+      "fulfillment_type": "agent_delivery_window",
+      "fulfillment_label": "Fictional scheduled service window — no external work or delivery"
+    },
+    {
+      "id": "item_agenda_polish",
+      "counter_id": "counter_scheduled_concierge",
+      "name": "Agenda Polish",
+      "description": "A fictional test-mode simulated service item used to demonstrate scheduled agent-delivery behavior.",
+      "amount": 500,
+      "currency": "usd",
+      "fulfillment_type": "agent_delivery_window",
+      "fulfillment_label": "Fictional scheduled service window — no external work or delivery"
+    }
+  ]
+}
