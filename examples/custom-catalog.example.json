@@ -1,35 +1,55 @@
 {
-  "business_name": "Acme Demo Supply Co.",
-  "business_type": "fictional software add-on marketplace",
-  "disclaimer": "This is a fictional test-mode demo. No real product, service, external task, or deliverable is provided.",
+  "business_name": "Orbit Coffee — Fictional Test Demo",
+  "business_type": "fictional coffee-ordering demonstration",
+  "disclaimer": "This is a fictional test-mode Machine Payments demonstration. No real order is placed, no food or drink is prepared, and no pickup, delivery, service, or external work occurs.",
   "counters": [
     {
-      "id": "counter_software",
-      "name": "Software Add-ons",
-      "fulfillment_type": "instant_simulation",
-      "fulfillment_label": "Immediate fictional confirmation — no real delivery or external work"
+      "id": "counter_coffee_bar",
+      "name": "Coffee Bar",
+      "fulfillment_type": "instant",
+      "fulfillment_label": "Instant fictional confirmation — no real delivery or external work"
     }
   ],
   "items": [
     {
-      "id": "item_priority_support",
-      "counter_id": "counter_software",
-      "name": "Priority Support Add-on",
-      "description": "A fictional test-mode support add-on for this Machine Payments demo.",
-      "amount": 500,
+      "id": "item_cold_brew",
+      "counter_id": "counter_coffee_bar",
+      "name": "Cold Brew",
+      "description": "A fictional test-mode cold coffee item for the Machine Payments demo.",
+      "amount": 425,
       "currency": "usd",
-      "fulfillment_type": "instant_simulation",
-      "fulfillment_label": "Immediate fictional confirmation — no real delivery or external work"
+      "fulfillment_type": "instant",
+      "fulfillment_label": "Instant fictional confirmation — no real delivery or external work"
     },
     {
-      "id": "item_architecture_review",
-      "counter_id": "counter_software",
-      "name": "Architecture Review Voucher",
-      "description": "A fictional test-mode architecture service item. No external work will occur.",
-      "amount": 800,
+      "id": "item_oat_latte",
+      "counter_id": "counter_coffee_bar",
+      "name": "Oat Milk Latte",
+      "description": "A fictional test-mode espresso drink with oat milk.",
+      "amount": 575,
       "currency": "usd",
-      "fulfillment_type": "instant_simulation",
-      "fulfillment_label": "Immediate fictional confirmation — no real delivery or external work"
+      "fulfillment_type": "instant",
+      "fulfillment_label": "Instant fictional confirmation — no real delivery or external work"
+    },
+    {
+      "id": "item_chocolate_croissant",
+      "counter_id": "counter_coffee_bar",
+      "name": "Chocolate Croissant",
+      "description": "A fictional test-mode bakery item for the Machine Payments demo.",
+      "amount": 395,
+      "currency": "usd",
+      "fulfillment_type": "instant",
+      "fulfillment_label": "Instant fictional confirmation — no real delivery or external work"
+    },
+    {
+      "id": "item_coffee_break_bundle",
+      "counter_id": "counter_coffee_bar",
+      "name": "Coffee Break Bundle",
+      "description": "A fictional test-mode bundle with one coffee and one bakery item.",
+      "amount": 795,
+      "currency": "usd",
+      "fulfillment_type": "instant",
+      "fulfillment_label": "Instant fictional confirmation — no real delivery or external work"
     }
   ]
 }
