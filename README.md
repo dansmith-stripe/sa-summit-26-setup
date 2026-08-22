@@ -1,229 +1,189 @@
-# Stripe Tech Café — Machine Payments workshop setup
+# Machine Payments Demo Setup
 
-This repository configures the local tools for the Stripe Tech Café Machine Payments demo.
+Set up Claude Code to complete a fictional, test-mode Machine Payments purchase through the hosted Stripe Tech Café MCP server.
 
-The demo is entirely test mode:
+The demo uses:
 
-- No real money moves.
-- No food is prepared or delivered.
-- No fictional Agent Counter item creates research, tickets, messages, customer-data access, external work, or a deliverable.
-- The actual purchase flow happens through Claude Code, MCP, Link, and the Machine Payments Protocol—not through the public webpage.
+- Claude Code for MCP catalog discovery and buyer interaction
+- Link for explicit test-mode payment approval and passkey verification
+- Stripe test mode for the resulting PaymentIntent
+- The hosted Machine Payments service at `https://machine-payments.stripedemos.com`
 
-The public [Stripe Tech Café page](https://machine-payments.stripedemos.com/) is a static example storefront. It does not change when you use a custom catalog.
+> **Test mode only.** No real money moves. No food, drink, service, external work, research, ticket, message, customer-data access, or deliverable is created.
 
-## Before you begin
+## What this repository configures
 
-You need:
+The setup script:
 
-1. Claude Code installed and signed in.
-2. Link CLI installed.
-3. A Stripe test-mode secret key beginning with `sk_test_`.
-4. A test-mode Stripe Business Network Profile ID beginning with `profile_test_`.
-5. A Link passkey configured for the Link account you will use in the exercise.
+- saves your local test-mode credentials in `~/.mpp-demo.env` with mode `600`;
+- registers the `mpp-demo` MCP server with Claude Code;
+- validates that Link CLI supports the required MPP `--test` and `--context` options;
+- optionally registers a fictional custom catalog for your local demo context.
 
-Set up your Link passkey before beginning:
+The public Stripe Tech Café landing page remains static. A custom catalog appears only through Claude Code/MCP.
 
-1. Visit <https://app.link.com/settings>.
-2. Open **Settings**.
-3. Select **Passkeys**.
-4. Add a passkey.
+## Requirements
 
-During payment approval, Link verifies your purchase through mobile biometric authentication if you use the Link mobile app, or with your laptop/browser-device password if you use Link in the browser.
+Before starting, make sure you have:
 
-## Clone the setup repository
+1. Claude Code installed and available as `claude`.
+2. `curl` and Python 3 available in your terminal.
+3. A Stripe test-mode Network Profile ID beginning with `profile_test_`.
+4. A Stripe test secret key beginning with `sk_test_`.
+5. A Link passkey configured at https://app.link.com/settings under **Passkeys**.
 
-    git clone https://github.com/dansmith-stripe/sa-summit-26-setup.git
-    cd sa-summit-26-setup
+Do not use a live Stripe key. Do not share secret keys, Network Profile IDs, Shared Payment Tokens, approval URLs, or raw terminal output containing credentials.
 
-## Standard Stripe Tech Café setup
+## Standard setup
 
-Run:
+Clone the repository and run setup:
 
+    git clone https://github.com/dansmith-stripe/mpp-demo-setup.git
+    cd mpp-demo-setup
     bash ./setup.sh
 
-The script verifies that Link CLI supports the required Machine Payments test-mode flow before it asks for Stripe credentials.
+The script prompts for:
 
-It then asks for:
+- your Stripe test-mode Network Profile ID; and
+- your Stripe test secret key.
 
-1. Your test-mode Stripe Profile ID (`profile_test_...`).
-2. Your Stripe test-mode secret key (`sk_test_...`).
+The secret-key prompt is intentionally visible so you can verify that the key pasted correctly. Do not share your screen or terminal while entering it.
 
-The secret-key input is visible while you type or paste it so you can confirm it pasted correctly. Do not share your screen, paste your key into chat, include it in screenshots, or commit it to source control.
-
-The script saves your local configuration to:
-
-    ~/.machine-payments-summit.env
-
-with file permissions set to `600`, then registers the `summit-booking-demo` MCP server with Claude Code.
-
-Open a fresh shell and start Claude Code:
-
-    source ~/.machine-payments-summit.env
-    claude mcp list
-    claude
-
-Claude Code should show `summit-booking-demo` as connected.
-
-Ask Claude:
-
-> Use the Machine Payments demo to list the available services.
-
-Without a custom catalog, Claude discovers the default Stripe Tech Café menu.
-
-## Link CLI compatibility check
-
-The workshop requires Link CLI's full test-mode MPP payment flow. Setup verifies that the installed CLI supports both:
-
-- `link-cli mpp pay --test`
-- `link-cli mpp pay --context`
-
-If setup says your Link CLI is too old, choose the update option or run:
+The script checks your Link CLI installation. If the installed version does not support the required MPP options, it can offer to run:
 
     npm install -g @stripe/link-cli
 
-Then open a fresh terminal and confirm:
+During Claude MCP registration, corporate authentication or a hardware security-key prompt may appear. Output remains visible. Complete the prompt and wait rather than interrupting the script.
 
-    link-cli --version
-    link-cli mpp pay --schema
+After setup completes, open a fresh terminal and run:
 
-The schema must include both `test` and `context`.
+    source ~/.mpp-demo.env
+    claude mcp list
+    claude
 
-If your terminal reports that an update was installed but `link-cli --version` remains unchanged, check which executable your shell is using:
+Confirm that `mpp-demo` appears in `claude mcp list`.
 
-    command -v link-cli
-    type -a link-cli
-    npm prefix -g
-    npm list -g --depth=0 @stripe/link-cli
+## Buy a fictional order
 
-The initial Link CLI update or authentication can request Stripe authentication or a hardware security key. Touch the security key if prompted. A short pause while that authentication prompt is active is expected.
+In Claude Code, ask to discover the menu:
 
-## Security-key prompt while updating Claude Code
+    What can I order from Stripe Tech Café today?
 
-During setup or reset, Claude Code may request Stripe authentication before it can add or remove the `summit-booking-demo` MCP configuration.
+Choose an item, review the exact test-mode quote, and explicitly approve the specific amount only after confirming that Link visibly identifies the payment as **Test mode**.
 
-If the terminal appears to pause at the Claude MCP step, check for a browser, macOS, terminal, or hardware-security-key prompt. Touch your security key and wait for authentication to finish. This is expected and does not mean the setup script has hung.
+For the default menu, the normal fulfillment is:
 
-Do not paste your Stripe secret key into Claude Code, chat, screenshots, recordings, or source control.
+    Instant fictional confirmation — no real delivery or external work
 
-## Use a custom fictional catalog
+Do not ask for a pickup window, delivery window, slot, schedule, hold, reservation, expiry, or time zone for an `instant` item.
 
-Use a custom catalog when you want to test different fictional business names, offerings, service names, descriptions, prices, or fulfillment wording.
+The expected flow is:
 
-Copy the example:
+    MCP catalog discovery
+    → exact quote
+    → explicit buyer approval
+    → Link test-mode passkey verification
+    → MPP payment challenge and retry
+    → Stripe test-mode PaymentIntent receipt
+
+After payment, verify the `pi_...` PaymentIntent in the same Stripe test-mode sandbox whose `sk_test_...` key you used. Confirm that `livemode` is `false`.
+
+## Optional: custom fictional catalog
+
+Custom catalogs are optional and appear only through Claude Code/MCP. They do not change the public Stripe Tech Café website.
+
+Start with the example catalog:
 
     cp examples/custom-catalog.example.json examples/my-fictional-catalog.json
 
-Edit the copied file:
+Edit `examples/my-fictional-catalog.json` to create a fictional menu. Keep a clear test-mode/non-affiliation disclaimer and use:
 
-    nano examples/my-fictional-catalog.json
+    "fulfillment_type": "instant"
 
-Then register it:
+for normal no-scheduling items.
+
+Register the catalog:
 
     bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
 
-Start a fresh shell and launch Claude Code:
+Then start a fresh Claude Code session:
 
-    source ~/.machine-payments-summit.env
+    source ~/.mpp-demo.env
     claude
 
-Ask Claude:
+Ask Claude to show the custom menu, choose an item, review the exact quote, and complete the same explicit-approval and Link test-mode flow.
 
-> Use the Machine Payments demo to list the available services.
+A successful registration creates an opaque local catalog-profile reference. Do not share that reference, your credentials, raw headers, or the full catalog-registration response.
 
-Claude Code should discover your custom fictional catalog through MCP.
+## Return to the default menu
 
-### Default immediate fulfillment
-
-The default catalog flow uses `instant_simulation`, with this standard fulfillment label:
-
-> Immediate fictional confirmation — no real delivery or external work
-
-This is the recommended workshop configuration. The attendee flow is:
-
-> Discover catalog → select item → see final quote → explicitly authorize → approve through Link in test mode → passkey verification → receipt
-
-There is no attendee-visible appointment, delivery window, reservation, pickup time, or hold expiry in the default demo path.
-
-### Catalog rules
-
-Your catalog may include:
-
-- a fictional business name and business type;
-- one or two fictional counters;
-- one to eight fictional items;
-- safe item names and descriptions;
-- USD prices;
-- immediate fictional fulfillment labels.
-
-`amount` is expressed in USD cents:
-
-- `100` means `$1.00 USD`
-- `500` means `$5.00 USD`
-- `1250` means `$12.50 USD`
-
-Catalogs must remain fictional and test mode only. Do not describe or request real food, goods, services, research, ticket creation, messaging, customer-data access, external work, or deliverables.
-
-Each registration creates a new immutable catalog profile. Editing a JSON file cannot alter an existing checkout, payment approval, or receipt.
-
-The public Stripe Tech Café webpage remains static. Your custom items appear only in Claude Code/MCP.
-
-### Optional advanced scheduled fulfillment
-
-The hosted demo may also support these advanced, SA-custom-catalog-only fulfillment types:
-
-- `pickup_window`
-- `agent_delivery_window`
-
-Use them only when you intentionally want to demonstrate a fictional scheduled reservation flow. They add availability lookup, selected-window, and internal expiry concepts, so they are not recommended for the standard workshop demo.
-
-To return to the default Stripe Tech Café catalog, run standard setup again without `--catalog`:
+Run setup without `--catalog`:
 
     bash ./setup.sh
+
+This rewrites the local environment file without a custom catalog-profile reference.
 
 ## Reset local setup
 
-For a complete local reset, including removal of demo variables from your current terminal, run:
+Run the reset script from the repository directory:
 
     source ./reset.sh
 
-The reset script first removes your local environment file. It then asks whether to remove the Claude MCP registration.
+Using `source` is recommended because it clears the currently loaded Machine Payments variables from your shell.
 
-Claude Code may request Stripe authentication before it can remove the MCP registration. If your browser, macOS, terminal, or hardware security key prompts you, touch your security key and wait for authentication to complete. This is expected and is not a script hang.
+The reset script:
 
-If you do not want to remove the MCP registration at that time, select `No`. Your local environment cleanup will still complete, and you can remove the MCP registration later:
+- removes `~/.mpp-demo.env`;
+- clears the current shell variables when sourced;
+- can remove the local `mpp-demo` Claude Code MCP registration.
 
-    claude mcp remove summit-booking-demo
+It does not delete hosted catalog profiles, test PaymentIntents, orders, or another person’s state.
 
-Running this command instead:
+If Claude requests authentication or a hardware security-key confirmation while removing the MCP server, complete the prompt normally. Do not suppress or time out the Claude CLI output.
 
-    bash ./reset.sh
+## Troubleshooting
 
-can remove local files and the MCP configuration, but cannot remove variables that were already loaded into your current terminal.
+### Link CLI does not support `--test` or `--context`
 
-`reset.sh` removes only local setup on your computer. It does not delete hosted payment records or custom catalog profiles, and it never affects another person’s demo data.
+Allow setup to update Link CLI. If your terminal still resolves an older binary afterward, open a fresh terminal and run:
 
-After reset, rerun either:
+    command -v link-cli
+    type -a link-cli
+    link-cli --version
+    link-cli mpp pay --schema
 
-    bash ./setup.sh
+### Custom catalog registration fails
 
-or:
+The setup script displays only the hosted service’s sanitized HTTP status, error code, and safe message.
 
-    bash ./setup.sh --catalog ./examples/my-fictional-catalog.json
+Do not share:
 
-## Workshop payment flow
+- secret keys;
+- Network Profile IDs;
+- headers;
+- authorization values;
+- Shared Payment Tokens;
+- catalog-profile IDs;
+- raw API responses; or
+- full catalog JSON.
 
-The standard exercise flow is:
+### `mpp-demo` does not appear in Claude Code
 
-1. Claude Code discovers a fictional catalog through MCP.
-2. You choose one fictional item.
-3. Claude shows the merchant, item, exact amount, currency, and fictional no-fulfillment disclaimer.
-4. You explicitly authorize the exact test-mode purchase.
-5. Link shows the exact test-mode payment for approval.
-6. Link verifies the purchase with your passkey:
-   - mobile biometric verification in the Link app; or
-   - your laptop/browser-device password when using Link in the browser.
-7. The Machine Payments Protocol completes an HTTP `402` challenge and Shared Payment Token retry.
-8. One test-mode PaymentIntent is created in your sandbox account.
-9. Claude shows the final receipt.
+Run:
 
-Always verify the merchant, item, amount, currency, and fictional disclaimer before approving a payment.
+    source ~/.mpp-demo.env
+    claude mcp list
+
+If it is still missing, rerun setup and choose to register the MCP server.
+
+## Security boundary
+
+`MPP_SECRET_KEY` is a server-owned deployment secret. It is not an attendee credential and must never be added to:
+
+- this repository;
+- `~/.mpp-demo.env`;
+- Claude MCP headers;
+- shell startup files;
+- screenshots;
+- chat; or
+- documentation.
